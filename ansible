@@ -1,0 +1,50 @@
+- name: install requried s/w's for CI-CD
+  hosts: all
+  tasks:
+   - name: install s/w's
+     apt:
+      name: "{{item.a}}"
+      state: present
+      update_cache: "{{item.b}}"
+     with_items:
+      - {a: openjdk-8-jdk,b: yes}
+      - {a: git,b: no}
+      - {a: maven,b: no}
+      - {a: tomcat9,b: no}
+
+- name: Continuous Download and Continuous Build
+  hosts: devserver
+  tasks:
+   - name: Download the code from remote git hub
+     git:
+      repo: https://github.com/intelliqittrainings/maven.git
+      dest: mygit
+   - name: create an arifact from the downloaded code
+     shell: cd /home/ubuntu/mygit;mvn package
+   - name: Fetch the artifact into the controller
+     fetch:
+      src: /home/ubuntu/mygit/webapp/target/webapp.war
+      dest: /tmp
+
+- name: Continuous Deployment and continuous Testing
+  hosts: qaserver
+  tasks:
+   - name: Copy artifact to Qaserver tomcat
+     copy:
+      src: /tmp/172.31.42.131/home/ubuntu/mygit/webapp/target/webapp.war
+      dest: /var/lib/tomcat9/webapps/qaapp.war
+   - name: Download the selenium scripts
+     git:
+      repo: https://github.com/intelliqittrainings/FunctionalTesting.git
+      dest: test-git
+   - name: Execute the selenium test scripts
+     shell: java -jar /home/ubuntu/test-git/testing.jar
+
+- name: Continuos Delivery
+  hosts: prodserver
+  tasks:
+    - name: Copy artifact to prodserver tomcat
+     copy:
+      src: /tmp/172.31.42.131/home/ubuntu/mygit/webapp/target/webapp.war
+      dest: /var/lib/tomcat9/webapps/prodapp.war
+
